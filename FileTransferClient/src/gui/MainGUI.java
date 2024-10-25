@@ -5,8 +5,10 @@
 package gui;
 
 import java.awt.Font;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -81,23 +83,36 @@ public class MainGUI extends JFrame {
 
                 // Obtener el contenido del archivo
                 while (cin.hasNext()) {
+                    System.out.println(cin.nextLine());
                     content.append(cin.nextLine());
                     content.append("\n");
                 }
-                System.out.println(content.toString());
                 cin.close();
-
                 // Enviar el contenido al servidor
                 Servidor servidor = new Servidor("192.168.1.4", 1234);
-                String contentString = content.toString();
-                String fileName = file.getName();
+                try {
+                    // Controlador para enviar datos que ocupen mas de un byte
+                    DataOutputStream salida = new DataOutputStream(servidor.getSocket().getOutputStream());
+                    String contentString = content.toString();
+                    String fileName = file.getName();
 
-                servidor.sendInt(fileName.getBytes().length); // Enviar la cantidad de bytes del nombre del archivo
-                servidor.sendInt(contentString.getBytes().length); // Enviar la cantidad de bytes del contenido
-                servidor.sendString(fileName); // Enviar el nombre del archivo
-                servidor.sendString(content.toString()); // Enviar el contenido del archivo
-                // Codigo para terminar la conexion
-                servidor.sendInt(-1);
+                    System.out.println("");
+                    System.out.println("FileName -> " + fileName);
+                    System.out.println("FileName Bytes -> " + fileName.getBytes().length);
+                    System.out.println("----------------------------------------");
+                    System.out.println(content.toString());
+                    System.out.println("Content Bytes -> " + contentString.getBytes().length);
+
+                    salida.writeInt(fileName.getBytes().length); // Enviar la cantidad de bytes del nombre del archivo
+                    salida.writeInt(contentString.getBytes().length); // Enviar la cantidad de bytes del contenido
+                    servidor.sendString(fileName); // Enviar el nombre del archivo
+                    servidor.sendString(content.toString()); // Enviar el contenido del archivo
+
+                    servidor.close();
+                    salida.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(MainGUI.class.getName()).log(Level.SEVERE, null, ex);
+                }
             } catch (FileNotFoundException ex) {
                 Logger.getLogger(MainGUI.class.getName()).log(Level.SEVERE, null, ex);
             }
