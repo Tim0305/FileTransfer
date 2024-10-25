@@ -4,6 +4,7 @@
  */
 package Cliente;
 
+import java.io.DataInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -28,20 +29,21 @@ public class Cliente extends Thread {
     public void run() {
         try {
             InputStream inputStream = s.getInputStream();
+            DataInputStream entrada = new DataInputStream(inputStream);
 
             while (true) {
                 if (inputStream.available() > 0) {
                     // Logica de comunicacion con el cliente para recibir el archivo
-                    int numBytesFileName = inputStream.read();
-                    int numBytesContent = inputStream.read();
+                    int numBytesFileName = entrada.readInt();
+                    long numBytesContent = entrada.readLong();
+
                     byte[] fileName = new byte[numBytesFileName];
-                    byte[] dataContent = new byte[numBytesContent];
+                    byte[] dataContent = new byte[(int) numBytesContent];
                     inputStream.read(fileName);
                     inputStream.read(dataContent);
+                    String fileNameString = new String(fileName);
 
-                    String fileNameString = fileName.toString();
-
-                    try (FileOutputStream fos = new FileOutputStream(fileNameString)) {
+                    try (FileOutputStream fos = new FileOutputStream("files/" + fileNameString)) {
                         // Escribimos los bytes del archivo
                         fos.write(dataContent);
                         System.out.println("Archivo creado correctamente -> " + fileNameString);
@@ -50,6 +52,8 @@ public class Cliente extends Thread {
                     }
 
                     // Terminar el hilo del servidor
+                    inputStream.close();
+                    entrada.close();
                     return;
                 }
             }
