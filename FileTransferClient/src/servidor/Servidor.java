@@ -46,4 +46,16 @@ public class Servidor {
             throw new RuntimeException(ex.getMessage());
         }
     }
+
+    public Socket getSocket() {
+        return s;
+    }
+
+    public void close() {
+        try {
+            s.close();
+        } catch (IOException ex) {
+            Logger.getLogger(Servidor.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
 }

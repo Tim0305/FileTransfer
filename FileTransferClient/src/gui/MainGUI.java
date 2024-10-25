@@ -5,8 +5,11 @@
 package gui;
 
 import java.awt.Font;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -74,31 +77,44 @@ public class MainGUI extends JFrame {
 
         resultado = archivo.showOpenDialog(null);
         if (resultado == JFileChooser.APPROVE_OPTION) {
-            try {
-                File file = archivo.getSelectedFile();
-                Scanner cin = new Scanner(file);
-                StringBuilder content = new StringBuilder();
+            File file = archivo.getSelectedFile();
 
-                // Obtener el contenido del archivo
-                while (cin.hasNext()) {
-                    content.append(cin.nextLine());
-                    content.append("\n");
+            try (FileInputStream fis = new FileInputStream(file)) {
+                long fileLength = file.length();
+                byte[] bytes = new byte[(int) fileLength];
+                System.out.println(fileLength);
+
+                // Leer los bytes del archivo
+                long readedBytes = fis.read(bytes);
+
+                // Comprobar si se leyeron todos los bytes
+                if (readedBytes == fileLength) {
+                    // Enviar los bytes al servidor
+                    Servidor servidor = new Servidor("192.168.1.4", 1234);
+
+                    try {
+                        // Controlador para enviar datos que ocupen mas de un byte
+                        DataOutputStream salida = new DataOutputStream(servidor.getSocket().getOutputStream());
+                        String fileName = file.getName();
+
+                        salida.writeInt(fileName.getBytes().length); // Enviar la cantidad de bytes del nombre del archivo
+                        salida.writeLong(fileLength); // Enviar la cantidad de bytes del contenido
+                        servidor.sendString(fileName); // Enviar el nombre del archivo
+                        salida.write(bytes); // Enviar el contenido del archivo
+
+                        servidor.close();
+                        salida.close();
+
+                    } catch (IOException ex) {
+                        Logger.getLogger(MainGUI.class
+                                .getName()).log(Level.SEVERE, null, ex);
+                    }
+
+                } else {
+                    throw new RuntimeException("No se leyeron todos los bytes del archivo");
                 }
-                System.out.println(content.toString());
-                cin.close();
 
-                // Enviar el contenido al servidor
-                Servidor servidor = new Servidor("192.168.1.4", 1234);
-                String contentString = content.toString();
-                String fileName = file.getName();
-
-                servidor.sendInt(fileName.getBytes().length); // Enviar la cantidad de bytes del nombre del archivo
-                servidor.sendInt(contentString.getBytes().length); // Enviar la cantidad de bytes del contenido
-                servidor.sendString(fileName); // Enviar el nombre del archivo
-                servidor.sendString(content.toString()); // Enviar el contenido del archivo
-                // Codigo para terminar la conexion
-                servidor.sendInt(-1);
-            } catch (FileNotFoundException ex) {
+            } catch (IOException ex) {
                 Logger.getLogger(MainGUI.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
