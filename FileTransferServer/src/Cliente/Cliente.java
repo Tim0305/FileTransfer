@@ -9,8 +9,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import lz77.descompresor.Descompresor;
 
 /**
  *
@@ -36,16 +39,21 @@ public class Cliente extends Thread {
                     // Logica de comunicacion con el cliente para recibir el archivo
                     int numBytesFileName = entrada.readInt();
                     long numBytesContent = entrada.readLong();
-
                     byte[] fileName = new byte[numBytesFileName];
-                    byte[] dataContent = new byte[(int) numBytesContent];
+                    List<Character> paquetes = new ArrayList<>();
+
                     inputStream.read(fileName);
-                    inputStream.read(dataContent);
+                    System.out.println(numBytesContent);
+                    for (int i = 0; i < numBytesContent; i++) {
+                        Character c = entrada.readChar();
+                        paquetes.add(c);
+                    }
+
                     String fileNameString = new String(fileName);
 
                     try (FileOutputStream fos = new FileOutputStream("files/" + fileNameString)) {
                         // Escribimos los bytes del archivo
-                        fos.write(dataContent);
+                        fos.write(Descompresor.descomprimir(paquetes).getBytes());
                         System.out.println("Archivo creado correctamente -> " + fileNameString);
                     } catch (IOException e) {
                         throw new RuntimeException(e.getMessage());
