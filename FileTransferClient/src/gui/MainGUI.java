@@ -10,6 +10,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.List;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -17,6 +18,7 @@ import javax.swing.GroupLayout;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import lz77.compresor.Compresor;
 import servidor.Servidor;
 
 /**
@@ -82,7 +84,6 @@ public class MainGUI extends JFrame {
             try (FileInputStream fis = new FileInputStream(file)) {
                 long fileLength = file.length();
                 byte[] bytes = new byte[(int) fileLength];
-                System.out.println(fileLength);
 
                 // Leer los bytes del archivo
                 long readedBytes = fis.read(bytes);
@@ -96,11 +97,20 @@ public class MainGUI extends JFrame {
                         // Controlador para enviar datos que ocupen mas de un byte
                         DataOutputStream salida = new DataOutputStream(servidor.getSocket().getOutputStream());
                         String fileName = file.getName();
+                        String fileContent = new String(bytes);
+                        List<Character> paquetes = Compresor.comprimir(fileContent);
 
                         salida.writeInt(fileName.getBytes().length); // Enviar la cantidad de bytes del nombre del archivo
-                        salida.writeLong(fileLength); // Enviar la cantidad de bytes del contenido
+                        salida.writeLong(paquetes.size()); // Enviar la cantidad de bytes del contenido
                         servidor.sendString(fileName); // Enviar el nombre del archivo
-                        salida.write(bytes); // Enviar el contenido del archivo
+
+                        for (Character paquete : paquetes) {
+                            // Enviar el contenido del archivo
+                            salida.writeChar(paquete);
+                        }
+
+                        System.out.println("File Lenght -> " + fileLength);
+                        System.out.println("File Compressed Length -> " + paquetes.size());
 
                         servidor.close();
                         salida.close();
