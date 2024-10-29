@@ -7,9 +7,9 @@ package Cliente;
 import java.io.DataInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -31,37 +31,51 @@ public class Cliente extends Thread {
     @Override
     public void run() {
         try {
-            InputStream inputStream = s.getInputStream();
-            DataInputStream entrada = new DataInputStream(inputStream);
+            DataInputStream entrada = new DataInputStream(s.getInputStream());
 
             while (true) {
-                if (inputStream.available() > 0) {
-                    // Logica de comunicacion con el cliente para recibir el archivo
-                    int numBytesFileName = entrada.readInt();
-                    long numBytesContent = entrada.readLong();
-                    byte[] fileName = new byte[numBytesFileName];
-                    List<Character> paquetes = new ArrayList<>();
+                // Logica de comunicacion con el cliente para recibir el archivo
+                if (entrada.available() > 0) {
 
-                    inputStream.read(fileName);
-                    System.out.println(numBytesContent);
-                    for (int i = 0; i < numBytesContent; i++) {
-                        Character c = entrada.readChar();
-                        paquetes.add(c);
+                    // Leer el nombre del archivo
+                    int numBytesFileName = entrada.readInt();
+                    byte[] fileName = new byte[numBytesFileName];
+                    entrada.read(fileName);
+                    String fileNameString = new String(fileName);
+
+                    // Leer el contenido del archivo
+                    int numListaPaquetes = entrada.readInt();
+                    List<List<Character>> listaPaquetes = new ArrayList<>();
+
+                    for (int i = 0; i < numListaPaquetes; i++) {
+                        int sizePaquetes = entrada.readInt();
+
+                        List<Character> paquetes = new ArrayList<>();
+                        for (int j = 0; j < sizePaquetes; j++) {
+                            paquetes.add(entrada.readChar());
+                        }
+
+                        listaPaquetes.add(paquetes);
                     }
 
-                    String fileNameString = new String(fileName);
+                    System.out.println(listaPaquetes.size());
 
                     try (FileOutputStream fos = new FileOutputStream("files/" + fileNameString)) {
                         // Escribimos los bytes del archivo
-                        fos.write(Descompresor.descomprimir(paquetes).getBytes());
+                        for (List<Character> listaPaquete : listaPaquetes) {
+                            System.out.println(listaPaquete.size());
+                            String content = Descompresor.descomprimir(listaPaquete);
+                            fos.write(Base64.getDecoder().decode(content));
+                        }
+
                         System.out.println("Archivo creado correctamente -> " + fileNameString);
                     } catch (IOException e) {
                         throw new RuntimeException(e.getMessage());
                     }
 
                     // Terminar el hilo del servidor
-                    inputStream.close();
                     entrada.close();
+                    s.close();
                     return;
                 }
             }

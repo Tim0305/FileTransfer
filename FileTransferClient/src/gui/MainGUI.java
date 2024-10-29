@@ -9,7 +9,10 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Scanner;
 import java.util.logging.Level;
@@ -19,6 +22,7 @@ import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import lz77.compresor.Compresor;
+import lz77.descompresor.Descompresor;
 import servidor.Servidor;
 
 /**
@@ -31,6 +35,8 @@ public class MainGUI extends JFrame {
     private JButton cmdSeleccionarArchivo;
     private int width;
     private int height;
+    // Cantidad de bytes que se envian por paquetes
+    private final int bufferSize = 1000;
 
     public MainGUI() {
         super();
@@ -79,54 +85,60 @@ public class MainGUI extends JFrame {
 
         resultado = archivo.showOpenDialog(null);
         if (resultado == JFileChooser.APPROVE_OPTION) {
+
             File file = archivo.getSelectedFile();
+            Servidor servidor = new Servidor("127.0.0.1", 1234);
+
+            String fileName = file.getName();
 
             try (FileInputStream fis = new FileInputStream(file)) {
-                long fileLength = file.length();
-                byte[] bytes = new byte[(int) fileLength];
 
-                // Leer los bytes del archivo
-                long readedBytes = fis.read(bytes);
+                byte[] buffer = new byte[bufferSize];
 
-                // Comprobar si se leyeron todos los bytes
-                if (readedBytes == fileLength) {
-                    // Enviar los bytes al servidor
-                    Servidor servidor = new Servidor("192.168.1.4", 1234);
+                DataOutputStream dos = new DataOutputStream(servidor.getSocket().getOutputStream());
 
-                    try {
-                        // Controlador para enviar datos que ocupen mas de un byte
-                        DataOutputStream salida = new DataOutputStream(servidor.getSocket().getOutputStream());
-                        String fileName = file.getName();
-                        String fileContent = new String(bytes);
-                        List<Character> paquetes = Compresor.comprimir(fileContent);
+                // Enviar los bytes del nombre del archivo
+                dos.writeInt(fileName.getBytes().length);
 
-                        salida.writeInt(fileName.getBytes().length); // Enviar la cantidad de bytes del nombre del archivo
-                        salida.writeLong(paquetes.size()); // Enviar la cantidad de bytes del contenido
-                        servidor.sendString(fileName); // Enviar el nombre del archivo
+                // Enviar el nombre del archivo
+                dos.write(fileName.getBytes());
 
-                        for (Character paquete : paquetes) {
-                            // Enviar el contenido del archivo
-                            salida.writeChar(paquete);
-                        }
+                List<List<Character>> listaPaquetes = new ArrayList<>();
 
-                        System.out.println("File Lenght -> " + fileLength);
-                        System.out.println("File Compressed Length -> " + paquetes.size());
-
-                        servidor.close();
-                        salida.close();
-
-                    } catch (IOException ex) {
-                        Logger.getLogger(MainGUI.class
-                                .getName()).log(Level.SEVERE, null, ex);
+                // Leer los bytes del archivo y almacenarlos en paquetes definidos por el bufferSize
+                int readedBytes = 0;
+                while ((readedBytes = fis.read(buffer)) != -1) {
+                    // Si el último bloque es menor a 1000 bytes, ajustamos el tamaño
+                    if (readedBytes < bufferSize) {
+                        byte[] newBuffer = new byte[readedBytes];
+                        System.arraycopy(buffer, 0, newBuffer, 0, readedBytes);
+                        listaPaquetes.add(Compresor.comprimir(Base64.getEncoder().encodeToString(newBuffer)));
+                    } else {
+                        listaPaquetes.add(Compresor.comprimir(Base64.getEncoder().encodeToString(buffer)));
                     }
+                }
 
-                } else {
-                    throw new RuntimeException("No se leyeron todos los bytes del archivo");
+                // Enviar la cantidad de lineas comprimidas del archivo
+                System.out.println(listaPaquetes.size());
+                dos.writeInt(listaPaquetes.size());
+
+                // Enviar cada paquete individualmente
+                for (List<Character> listaPaquete : listaPaquetes) {
+
+                    // Tamanio del paquete
+                    dos.writeInt(listaPaquete.size());
+                    System.out.println(listaPaquete.size());
+
+                    // Contenido del paquete
+                    for (Character paquete : listaPaquete) {
+                        dos.writeChar(paquete);
+                    }
                 }
 
             } catch (IOException ex) {
                 Logger.getLogger(MainGUI.class.getName()).log(Level.SEVERE, null, ex);
             }
+
         }
     }
 }
