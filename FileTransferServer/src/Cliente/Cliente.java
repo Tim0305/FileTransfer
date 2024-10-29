@@ -5,6 +5,7 @@
 package Cliente;
 
 import java.io.DataInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.Socket;
@@ -44,45 +45,36 @@ public class Cliente extends Thread {
                     String fileNameString = new String(fileName);
 
                     // Leer el contenido del archivo
-                    int numListaPaquetes = entrada.readInt();
-                    List<List<Character>> listaPaquetes = new ArrayList<>();
+                    int numPaquetes = entrada.readInt();
+                    List<Character> paquetes = new ArrayList<>();
 
-                    for (int i = 0; i < numListaPaquetes; i++) {
-                        int sizePaquetes = entrada.readInt();
-
-                        List<Character> paquetes = new ArrayList<>();
-                        for (int j = 0; j < sizePaquetes; j++) {
-                            paquetes.add(entrada.readChar());
-                        }
-
-                        listaPaquetes.add(paquetes);
+                    for (int i = 0; i < numPaquetes; i++) {
+                        paquetes.add(entrada.readChar());
                     }
 
-                    System.out.println(listaPaquetes.size());
+                    System.out.println(paquetes.size());
 
-                    try (FileOutputStream fos = new FileOutputStream("files/" + fileNameString)) {
-                        // Escribimos los bytes del archivo
-                        for (List<Character> listaPaquete : listaPaquetes) {
-                            System.out.println(listaPaquete.size());
-                            String content = Descompresor.descomprimir(listaPaquete);
-                            fos.write(Base64.getDecoder().decode(content));
-                        }
+                    // Controlador para escribir archivos
+                    FileOutputStream fos = new FileOutputStream("files/" + fileNameString);
+                    // Escribimos los bytes del archivo
 
-                        System.out.println("Archivo creado correctamente -> " + fileNameString);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e.getMessage());
-                    }
+                    String content = Descompresor.descomprimir(paquetes);
+                    fos.write(Base64.getDecoder().decode(content));
+
+                    System.out.println("Archivo creado correctamente -> " + fileNameString);
 
                     // Terminar el hilo del servidor
                     entrada.close();
+                    fos.close();
                     s.close();
                     return;
                 }
             }
+        } catch (FileNotFoundException ex) {
+            Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);
 
         } catch (IOException ex) {
             Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);
         }
-
     }
 }

@@ -93,52 +93,39 @@ public class MainGUI extends JFrame {
 
             try (FileInputStream fis = new FileInputStream(file)) {
 
-                byte[] buffer = new byte[bufferSize];
+                long fileLength = file.length();
+                byte[] dataContent = new byte[(int) fileLength];
+                long readedBytes = fis.read(dataContent);
 
-                DataOutputStream dos = new DataOutputStream(servidor.getSocket().getOutputStream());
+                System.out.println("Bytes -> " + fileLength);
 
-                // Enviar los bytes del nombre del archivo
-                dos.writeInt(fileName.getBytes().length);
+                if (readedBytes == fileLength) {
+                    DataOutputStream dos = new DataOutputStream(servidor.getSocket().getOutputStream());
 
-                // Enviar el nombre del archivo
-                dos.write(fileName.getBytes());
+                    String content = Base64.getEncoder().encodeToString(dataContent);
+                    System.out.println("Base64 Bytes -> " + content.length());
 
-                List<List<Character>> listaPaquetes = new ArrayList<>();
+                    List<Character> paquetes = Compresor.comprimir(content);
 
-                // Leer los bytes del archivo y almacenarlos en paquetes definidos por el bufferSize
-                int readedBytes = 0;
-                while ((readedBytes = fis.read(buffer)) != -1) {
-                    // Si el último bloque es menor a 1000 bytes, ajustamos el tamaño
-                    if (readedBytes < bufferSize) {
-                        byte[] newBuffer = new byte[readedBytes];
-                        System.arraycopy(buffer, 0, newBuffer, 0, readedBytes);
-                        listaPaquetes.add(Compresor.comprimir(Base64.getEncoder().encodeToString(newBuffer)));
-                    } else {
-                        listaPaquetes.add(Compresor.comprimir(Base64.getEncoder().encodeToString(buffer)));
-                    }
-                }
+                    // Enviar los bytes del nombre del archivo
+                    dos.writeInt(fileName.getBytes().length);
 
-                // Enviar la cantidad de lineas comprimidas del archivo
-                System.out.println(listaPaquetes.size());
-                dos.writeInt(listaPaquetes.size());
+                    // Enviar el nombre del archivo
+                    dos.write(fileName.getBytes());
 
-                // Enviar cada paquete individualmente
-                for (List<Character> listaPaquete : listaPaquetes) {
+                    // Enviar la cantidad de paquetes
+                    dos.writeInt(paquetes.size());
+                    System.out.println("Size -> " + paquetes.size());
 
-                    // Tamanio del paquete
-                    dos.writeInt(listaPaquete.size());
-                    System.out.println(listaPaquete.size());
-
-                    // Contenido del paquete
-                    for (Character paquete : listaPaquete) {
+                    // Enviar los paquetes
+                    // Enviar cada paquete individualmente
+                    for (Character paquete : paquetes) {
                         dos.writeChar(paquete);
                     }
                 }
-
             } catch (IOException ex) {
                 Logger.getLogger(MainGUI.class.getName()).log(Level.SEVERE, null, ex);
             }
-
         }
     }
 }
