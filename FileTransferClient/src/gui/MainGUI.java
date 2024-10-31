@@ -87,7 +87,7 @@ public class MainGUI extends JFrame {
         if (resultado == JFileChooser.APPROVE_OPTION) {
 
             File file = archivo.getSelectedFile();
-            Servidor servidor = new Servidor("127.0.0.1", 1234);
+            Servidor servidor = new Servidor("192.168.137.1", 1234);
 
             String fileName = file.getName();
 
